@@ -1,0 +1,133 @@
+import { afterEach, describe, expect, test } from "bun:test";
+import { testRender } from "@opentui/react/test-utils";
+import { act } from "react";
+
+import { App, getSuggestions } from "./app";
+
+let setup: Awaited<ReturnType<typeof testRender>> | undefined;
+
+afterEach(async () => {
+	await act(async () => setup?.renderer.destroy());
+	setup = undefined;
+});
+
+describe("coding agent TUI", () => {
+	const noConnectionCheck = () => new Promise<boolean>(() => undefined);
+
+	test("renders the model and primary interaction hints", async () => {
+		setup = await testRender(<App checkConnection={noConnectionCheck} />, {
+			width: 100,
+			height: 30,
+		});
+		await setup.renderOnce();
+		const frame = setup.captureCharFrame();
+
+		expect(frame).toContain("deepseek/deepseek-v4-flash");
+		expect(frame).toContain("/ commands");
+		expect(frame).toContain("@ files");
+		expect(frame).toContain("Code with an agent in your terminal");
+	});
+
+	test("shows a filtered command palette", async () => {
+		setup = await testRender(
+			<App initialInput="/to" checkConnection={noConnectionCheck} />,
+			{ width: 100, height: 30 },
+		);
+		await setup.renderOnce();
+		const frame = setup.captureCharFrame();
+
+		expect(frame).toContain("Commands");
+		expect(frame).toContain("/tools");
+		expect(frame).not.toContain("/clear");
+	});
+
+	test("shows matching workspace files for an @ mention", async () => {
+		setup = await testRender(
+			<App
+				initialInput="Review @app"
+				files={[
+					"README.md",
+					"apps/tui/src/app.tsx",
+					"packages/api/src/index.ts",
+				]}
+				checkConnection={noConnectionCheck}
+			/>,
+			{ width: 100, height: 30 },
+		);
+		await setup.renderOnce();
+		const frame = setup.captureCharFrame();
+
+		expect(frame).toContain("Mention a file");
+		expect(frame).toContain("@apps/tui/src/app.tsx");
+		expect(frame).not.toContain("@README.md");
+	});
+
+	test("completes a selected file mention without sending", async () => {
+		let requests = 0;
+		setup = await testRender(
+			<App
+				initialInput="Review @app"
+				files={["apps/tui/src/app.tsx"]}
+				checkConnection={noConnectionCheck}
+				runAgent={async () => {
+					requests += 1;
+					throw new Error("This request should not run");
+				}}
+			/>,
+			{ width: 100, height: 30 },
+		);
+
+		await act(async () => setup?.mockInput.pressEnter());
+		await setup.renderOnce();
+		const frame = setup.captureCharFrame();
+
+		expect(frame).toContain("Review @apps/tui/src/app.tsx");
+		expect(frame).not.toContain("Mention a file");
+		expect(requests).toBe(0);
+	});
+
+	test("ranks only the relevant trigger type", () => {
+		expect(getSuggestions("/mod", [])).toEqual([
+			{
+				label: "/model",
+				description: "Show the active model",
+				value: "/model ",
+			},
+		]);
+		expect(
+			getSuggestions("Fix @api", ["src/app.tsx", "packages/api/index.ts"]),
+		).toHaveLength(1);
+	});
+
+	test("sends chat messages and renders tool activity", async () => {
+		let received = "";
+		setup = await testRender(
+			<App
+				checkConnection={noConnectionCheck}
+				runAgent={async (message) => {
+					received = message;
+					return {
+						model: "deepseek/deepseek-v4-flash",
+						text: "I inspected the code and verified the update.",
+						tools: ["read_file", "bash"],
+						toolCalls: ["read_file", "bash"],
+					};
+				}}
+			/>,
+			{ width: 100, height: 30 },
+		);
+
+		await act(async () => {
+			await setup?.mockInput.typeText("Inspect the TUI");
+			setup?.mockInput.pressEnter();
+		});
+		const frame = await setup.waitForFrame((nextFrame) =>
+			nextFrame.includes("verified the update"),
+		);
+
+		expect(received).toBe("Inspect the TUI");
+		expect(frame).toContain("Reasoning & actions");
+		expect(frame).toContain("✓ read_file");
+		expect(frame).toContain("✓ bash");
+	});
+});

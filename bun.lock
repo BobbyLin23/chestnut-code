@@ -48,12 +48,15 @@
     "apps/tui": {
       "name": "tui",
       "dependencies": {
+        "@chestnut-code/api": "workspace:*",
         "@opentui/core": "^0.5.11",
         "@opentui/react": "^0.5.11",
+        "@trpc/client": "catalog:",
         "react": "^19.2.8",
       },
       "devDependencies": {
         "@types/bun": "1.3.14",
+        "@types/react": "catalog:",
         "typescript": "^5.9.3",
       },
     },

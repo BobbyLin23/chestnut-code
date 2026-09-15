@@ -1,4 +1,4 @@
-# react
+# Chestnut Code TUI
 
 Requires [Bun](https://bun.sh/) 1.3.0 or later.
 
@@ -8,11 +8,18 @@ To install dependencies:
 bun install
 ```
 
-To run:
+Start the coding-agent server in one terminal, then the TUI in another:
 
 ```bash
-bun dev
+bun run dev:server
+bun run dev:tui
 ```
+
+The TUI connects to `http://localhost:3150` by default. Set `SERVER_URL` to use
+another server. The server requires `DEEPSEEK_API_KEY`.
+
+Type `/` to open the command palette and `@` to mention tracked workspace files.
+Use the arrow keys to choose, Enter or Tab to complete, and Enter to send.
 
 To typecheck:
 
@@ -20,4 +27,4 @@ To typecheck:
 bun run typecheck
 ```
 
-This project was created using `bun create tui`. [create-tui](https://github.com/msmps/create-tui) is the easiest way to get started with OpenTUI.
+The active model is `deepseek/deepseek-v4-flash`.
