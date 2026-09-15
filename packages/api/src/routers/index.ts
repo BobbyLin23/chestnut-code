@@ -6,14 +6,14 @@ export const appRouter = router({
 	healthCheck: publicProcedure.query(() => {
 		return "OK";
 	}),
-	chat: publicProcedure
+	runCodingAgent: publicProcedure
 		.input(
 			z.object({
 				message: z.string().trim().min(1).max(4000),
 			}),
 		)
 		.mutation(({ ctx, input }) => {
-			return ctx.chatWithAgent(input);
+			return ctx.runCodingAgent(input);
 		}),
 });
 export type AppRouter = typeof appRouter;

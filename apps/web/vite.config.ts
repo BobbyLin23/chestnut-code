@@ -6,7 +6,11 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
 	server: {
+		allowedHosts: [".onamp.dev"],
 		port: 3151,
+		proxy: {
+			"/trpc": "http://localhost:3150",
+		},
 	},
 	resolve: {
 		tsconfigPaths: true,

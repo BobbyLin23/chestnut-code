@@ -1,9 +1,13 @@
 import { Mastra } from "@mastra/core";
 
-import { chatAgent, DEFAULT_MODEL } from "./agents/chat-agent";
+import {
+	CODING_AGENT_TOOLS,
+	codingAgent,
+	DEFAULT_MODEL,
+} from "./agents/coding-agent";
 
 export const mastra = new Mastra({
-	agents: { chatAgent },
+	agents: { codingAgent },
 });
 
-export { DEFAULT_MODEL };
+export { CODING_AGENT_TOOLS, DEFAULT_MODEL };

@@ -12,6 +12,7 @@ build
 apps/web/src/routeTree.gen.ts
 local.db
 local.db-*
+.coding-agent-workspace/
 
 # Environment variables
 .env

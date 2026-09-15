@@ -1,14 +1,11 @@
 import { Toaster } from "@chestnut-code/ui/components/sonner";
 import type { QueryClient } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
 	createRootRouteWithContext,
 	HeadContent,
 	Outlet,
 } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
-import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
 import type { trpc } from "@/utils/trpc";
 
@@ -24,11 +21,11 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 	head: () => ({
 		meta: [
 			{
-				title: "chestnut-code",
+				title: "Chestnut Code · Agent Playground",
 			},
 			{
 				name: "description",
-				content: "chestnut-code is a web application",
+				content: "Test a Mastra coding agent powered by DeepSeek.",
 			},
 		],
 		links: [
@@ -50,14 +47,9 @@ function RootComponent() {
 				disableTransitionOnChange
 				storageKey="vite-ui-theme"
 			>
-				<div className="grid h-svh grid-rows-[auto_1fr]">
-					<Header />
-					<Outlet />
-				</div>
+				<Outlet />
 				<Toaster richColors />
 			</ThemeProvider>
-			<TanStackRouterDevtools position="bottom-left" />
-			<ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
 		</>
 	);
 }

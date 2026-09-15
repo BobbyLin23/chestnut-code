@@ -20,6 +20,20 @@ function getServerUrl(url = "http://localhost:3150") {
 
 	const normalized = url.endsWith("/") ? url.slice(0, -1) : url;
 
+	if (typeof window !== "undefined") {
+		const configuredUrl = new URL(normalized, window.location.origin);
+		const configuredForLocalhost = ["localhost", "127.0.0.1", "::1"].includes(
+			configuredUrl.hostname,
+		);
+		const runningOnLocalhost = ["localhost", "127.0.0.1", "::1"].includes(
+			window.location.hostname,
+		);
+
+		if (configuredForLocalhost && !runningOnLocalhost) {
+			return window.location.origin;
+		}
+	}
+
 	if (!normalized.startsWith("/")) {
 		return normalized;
 	}

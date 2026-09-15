@@ -1,8 +1,10 @@
 export type Context = {
 	auth: null;
 	session: null;
-	chatWithAgent: (input: { message: string }) => Promise<{
+	runCodingAgent: (input: { message: string }) => Promise<{
 		model: string;
 		text: string;
+		tools: readonly string[];
+		toolCalls: string[];
 	}>;
 };
