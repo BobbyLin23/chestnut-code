@@ -39,7 +39,7 @@ function getServerUrl(url: string) {
 		return `${origin}${normalized}`;
 	}
 
-	return `http://localhost:3000${normalized}`;
+	return `http://localhost:3150${normalized}`;
 }
 export const queryClient = new QueryClient({
 	queryCache: new QueryCache({

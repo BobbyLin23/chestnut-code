@@ -29,8 +29,8 @@ Then, run the development server:
 bun run dev
 ```
 
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
-The API is running at [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3151](http://localhost:3151) in your browser to see the web application.
+The API is running at [http://localhost:3150](http://localhost:3150).
 
 ## UI Customization
 
