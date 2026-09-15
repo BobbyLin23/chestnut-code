@@ -417,7 +417,7 @@ export function App({
 			>
 				<box height={2} flexDirection="row" justifyContent="space-between">
 					<text fg={COLORS.accent}>
-						<strong>◆ CHESTNUT CODE</strong>
+						<strong>CHESTNUT CODE</strong>
 					</text>
 					<text fg={serverOnline === false ? COLORS.danger : COLORS.dim}>
 						{serverOnline === null
@@ -491,7 +491,7 @@ export function App({
 					<text fg={COLORS.accent}>› </text>
 					<input
 						value={input}
-						onChange={(value) => {
+						onInput={(value) => {
 							setInput(value);
 							setDismissedValue(null);
 							setSelected(0);

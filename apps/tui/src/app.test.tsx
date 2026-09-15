@@ -62,6 +62,26 @@ describe("coding agent TUI", () => {
 		expect(frame).not.toContain("@README.md");
 	});
 
+	test("opens the file mention menu while typing an @ mention", async () => {
+		setup = await testRender(
+			<App
+				files={["apps/tui/src/app.tsx", "README.md"]}
+				checkConnection={noConnectionCheck}
+			/>,
+			{ width: 100, height: 30 },
+		);
+		await setup.renderOnce();
+
+		await act(async () => {
+			await setup?.mockInput.typeText("Review @app");
+		});
+		const frame = await setup.waitForFrame((nextFrame) =>
+			nextFrame.includes("Mention a file"),
+		);
+
+		expect(frame).toContain("@apps/tui/src/app.tsx");
+	});
+
 	test("completes a selected file mention without sending", async () => {
 		let requests = 0;
 		setup = await testRender(

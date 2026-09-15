@@ -7,6 +7,7 @@ import { attachMentionedFiles, loadWorkspace } from "./files";
 
 const renderer = await createCliRenderer({ exitOnCtrlC: false });
 const workspace = loadWorkspace();
+
 createRoot(renderer).render(
 	<App
 		files={workspace.files}
