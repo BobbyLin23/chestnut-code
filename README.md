@@ -10,6 +10,7 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **Shared UI package** - shadcn/ui primitives live in `packages/ui`
 - **Hono** - Lightweight, performant server framework
 - **tRPC** - End-to-end type-safe APIs
+- **Mastra** - Agent framework with Hono integration
 - **Bun** - Runtime environment
 - **Turborepo** - Optimized monorepo build system
 - **Biome** - Linting and formatting
@@ -61,6 +62,8 @@ If you want to add app-specific blocks instead of shared primitives, run the sha
 ## Environment Configuration
 
 Each app owns its environment schema in `.env.schema`. Varlock generates `src/env.ts` during installation; run `bun run env:generate` after changing a schema. Commit schemas, and keep secrets in ignored env files or your deployment platform.
+
+Agent chat uses `deepseek/deepseek-v4-flash`. Set `DEEPSEEK_API_KEY` in `apps/server/.env` or your deployment environment before starting the server.
 
 Import the generated `ENV` accessor in application code. Shared database and auth packages receive configuration or initialized clients from the application. See [Varlock's monorepo guide](https://varlock.dev/guides/monorepos/).
 

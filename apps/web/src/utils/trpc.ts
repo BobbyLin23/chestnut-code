@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { ENV as env } from "../env";
 
-function getServerUrl(url: string) {
+function getServerUrl(url = "http://localhost:3150") {
 	const processEnv = (
 		globalThis as {
 			process?: { env?: Record<string, string | undefined> };

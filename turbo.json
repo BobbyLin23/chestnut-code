@@ -35,6 +35,7 @@
 	"globalEnv": [
 		"CI",
 		"CORS_ORIGIN",
+		"DEEPSEEK_API_KEY",
 		"NODE_ENV",
 		"VERCEL",
 		"VERCEL_ENV",

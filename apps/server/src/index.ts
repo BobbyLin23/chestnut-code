@@ -1,13 +1,22 @@
 import { appRouter } from "@chestnut-code/api/routers/index";
 import { trpcServer } from "@hono/trpc-server";
+import {
+	type HonoBindings,
+	type HonoVariables,
+	MastraServer,
+} from "@mastra/hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
 import { createContext } from "./context";
 import { desktopOrigins, env } from "./env.server";
+import { mastra } from "./mastra";
 
-const app = new Hono();
+const app = new Hono<{
+	Bindings: HonoBindings;
+	Variables: HonoVariables;
+}>();
 
 app.use(logger());
 app.use(
@@ -17,6 +26,9 @@ app.use(
 		allowMethods: ["GET", "POST", "OPTIONS"],
 	}),
 );
+
+const mastraServer = new MastraServer({ app, mastra });
+await mastraServer.init();
 
 app.use(
 	"/trpc/*",
@@ -32,4 +44,7 @@ app.get("/", (c) => {
 	return c.text("OK");
 });
 
-export default app;
+export default {
+	port: 3150,
+	fetch: app.fetch,
+};

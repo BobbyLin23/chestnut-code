@@ -13,6 +13,8 @@
 	"dependencies": {
 		"@chestnut-code/api": "workspace:*",
 		"@hono/trpc-server": "^0.4.2",
+		"@mastra/core": "^1.66.0",
+		"@mastra/hono": "^1.7.8",
 		"@trpc/server": "catalog:",
 		"hono": "^4.13.7",
 		"varlock": "catalog:",
