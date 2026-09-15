@@ -1,6 +1,6 @@
 {
-  "extends": "@chestnut-code/config/tsconfig.base.json",
-  "compilerOptions": {
-    "noEmit": true
-  }
+	"extends": "@chestnut-code/config/tsconfig.base.json",
+	"compilerOptions": {
+		"noEmit": true
+	}
 }

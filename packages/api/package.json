@@ -1,24 +1,24 @@
 {
-  "name": "@chestnut-code/api",
-  "type": "module",
-  "exports": {
-    ".": {
-      "default": "./src/index.ts"
-    },
-    "./*": {
-      "default": "./src/*.ts"
-    }
-  },
-  "scripts": {
-    "check-types": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@trpc/client": "catalog:",
-    "@trpc/server": "catalog:",
-    "zod": "catalog:"
-  },
-  "devDependencies": {
-    "@chestnut-code/config": "workspace:*",
-    "typescript": "catalog:"
-  }
+	"name": "@chestnut-code/api",
+	"type": "module",
+	"exports": {
+		".": {
+			"default": "./src/index.ts"
+		},
+		"./*": {
+			"default": "./src/*.ts"
+		}
+	},
+	"scripts": {
+		"check-types": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@trpc/client": "catalog:",
+		"@trpc/server": "catalog:",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@chestnut-code/config": "workspace:*",
+		"typescript": "catalog:"
+	}
 }

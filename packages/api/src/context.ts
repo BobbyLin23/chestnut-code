@@ -1,4 +1,4 @@
 export type Context = {
-  auth: null;
-  session: null;
+	auth: null;
+	session: null;
 };
