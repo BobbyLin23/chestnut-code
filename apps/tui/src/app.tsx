@@ -1,32 +1,20 @@
 import { TextAttributes } from "@opentui/core";
-import {
-	useKeyboard,
-	useRenderer,
-	useTerminalDimensions,
-} from "@opentui/react";
+import { useKeyboard, useRenderer } from "@opentui/react";
 import { useEffect, useMemo, useState } from "react";
 
 import {
 	type AgentResponse,
+	type AgentStreamEvent,
 	checkServer,
 	DEFAULT_MODEL,
 	type RunAgent,
-	runCodingAgent,
+	streamCodingAgent,
 } from "./client";
-
-const COLORS = {
-	accent: "#c7f464",
-	accentMuted: "#86a83d",
-	assistant: "#d6ddff",
-	background: "#292d3e",
-	border: "#9aa5ce",
-	danger: "#ff757f",
-	dim: "#7982a9",
-	panel: "#30354a",
-	selected: "#444b6a",
-	tool: "#ffc777",
-	white: "#eef1ff",
-} as const;
+import { ActivityView } from "./components/activity-view";
+import { MessageView } from "./components/message-view";
+import { Welcome } from "./components/welcome";
+import { COLORS } from "./constants/color";
+import type { Message, ToolActivity } from "./types";
 
 const COMMANDS = [
 	{ name: "help", description: "Show keyboard shortcuts" },
@@ -45,14 +33,6 @@ const AVAILABLE_TOOLS = [
 	"grep",
 	"bash",
 ] as const;
-
-export type Message = {
-	id: string;
-	role: "user" | "assistant" | "notice";
-	text: string;
-	model?: string;
-	toolCalls?: string[];
-};
 
 type Suggestion = {
 	label: string;
@@ -117,69 +97,6 @@ function applySuggestion(input: string, suggestion: Suggestion) {
 	return input.replace(/@[^\s@]*$/, `@${suggestion.value} `);
 }
 
-function ToolTimeline({ toolCalls }: { toolCalls: string[] }) {
-	if (toolCalls.length === 0) {
-		return (
-			<text fg={COLORS.dim}>
-				<span fg={COLORS.accentMuted}>◇</span> Reasoning & actions · answered
-				directly
-			</text>
-		);
-	}
-	const entries = toolCalls.map((tool, index) => ({
-		id: `${tool}-${toolCalls.slice(0, index).filter((name) => name === tool).length}`,
-		tool,
-	}));
-
-	return (
-		<box flexDirection="column" marginTop={1}>
-			<text fg={COLORS.dim}>
-				<span fg={COLORS.accent}>◆</span> Reasoning & actions
-			</text>
-			{entries.map(({ id, tool }) => (
-				<text key={id} fg={COLORS.dim}>
-					<span fg={COLORS.tool}>✓ {tool}</span>
-				</text>
-			))}
-		</box>
-	);
-}
-
-function MessageView({ message }: { message: Message }) {
-	if (message.role === "notice") {
-		return (
-			<box
-				border={["left"]}
-				borderColor={COLORS.tool}
-				paddingLeft={1}
-				marginBottom={1}
-			>
-				<text fg={COLORS.tool}>{message.text}</text>
-			</box>
-		);
-	}
-
-	const assistant = message.role === "assistant";
-	return (
-		<box flexDirection="column" marginBottom={1}>
-			<text fg={assistant ? COLORS.accent : COLORS.dim}>
-				<strong>{assistant ? "Chestnut" : "You"}</strong>
-				{assistant && message.model ? `  ${message.model}` : ""}
-			</text>
-			<box
-				backgroundColor={assistant ? COLORS.panel : COLORS.selected}
-				paddingX={1}
-				paddingY={assistant ? 1 : 0}
-			>
-				<text fg={assistant ? COLORS.assistant : COLORS.white} selectable>
-					{message.text}
-				</text>
-			</box>
-			{assistant ? <ToolTimeline toolCalls={message.toolCalls ?? []} /> : null}
-		</box>
-	);
-}
-
 function SuggestionMenu({
 	suggestions,
 	selected,
@@ -222,43 +139,14 @@ function SuggestionMenu({
 	);
 }
 
-function Welcome() {
-	return (
-		<box
-			flexGrow={1}
-			alignItems="center"
-			justifyContent="center"
-			flexDirection="column"
-		>
-			<box height={4} flexShrink={0}>
-				<ascii-font font="tiny" text="CHESTNUT" color={COLORS.accent} />
-			</box>
-			<text fg={COLORS.accent}>
-				<strong>Code with an agent in your terminal</strong>
-			</text>
-			<text fg={COLORS.dim}>Ask a question or delegate a coding task.</text>
-			<box marginTop={1} flexDirection="column">
-				<text fg={COLORS.dim}>
-					<span fg={COLORS.assistant}>/</span> commands{" "}
-					<span fg={COLORS.assistant}>@</span> files
-				</text>
-				<text fg={COLORS.dim}>
-					Enter send · ↑↓ choose · Esc close · Ctrl+C quit
-				</text>
-			</box>
-		</box>
-	);
-}
-
 export function App({
 	files = [],
-	runAgent = runCodingAgent,
+	runAgent = streamCodingAgent,
 	initialInput = "",
 	initialMessages = [],
 	checkConnection = checkServer,
 }: AppProps) {
 	const renderer = useRenderer();
-	const { width } = useTerminalDimensions();
 	const [input, setInput] = useState(initialInput);
 	const [messages, setMessages] = useState<Message[]>(initialMessages);
 	const [pending, setPending] = useState(false);
@@ -267,6 +155,8 @@ export function App({
 	const [dismissedValue, setDismissedValue] = useState<string | null>(null);
 	const [serverOnline, setServerOnline] = useState<boolean | null>(null);
 	const [progress, setProgress] = useState(0);
+	const [activity, setActivity] = useState<ToolActivity[]>([]);
+	const [streamText, setStreamText] = useState("");
 
 	const suggestions = useMemo(
 		() => getSuggestions(input, files),
@@ -274,7 +164,6 @@ export function App({
 	);
 	const menuOpen = suggestions.length > 0 && dismissedValue !== input;
 	const menuMode = getCommandQuery(input) !== null ? "commands" : "files";
-	const contentWidth = Math.min(Math.max(width - 4, 1), 110);
 
 	useEffect(() => {
 		void checkConnection().then(setServerOnline);
@@ -338,12 +227,14 @@ export function App({
 		setInput("");
 		setError(null);
 		setPending(true);
+		setActivity([]);
+		setStreamText("");
 		setMessages((current) => [
 			...current,
 			{ id: uniqueId(), role: "user", text: message },
 		]);
 		try {
-			const response: AgentResponse = await runAgent(message);
+			const response: AgentResponse = await runAgent(message, handleEvent);
 			setMessages((current) => [
 				...current,
 				{
@@ -362,6 +253,40 @@ export function App({
 			setServerOnline(false);
 		} finally {
 			setPending(false);
+		}
+	}
+
+	function handleEvent(event: AgentStreamEvent) {
+		switch (event.type) {
+			case "tool-call":
+				setActivity((current) => [
+					...current,
+					{
+						id: event.id,
+						tool: event.tool,
+						args: event.args,
+						status: "running",
+					},
+				]);
+				break;
+			case "tool-result":
+				setActivity((current) =>
+					current.map((item) =>
+						item.id === event.id
+							? { ...item, status: event.ok ? "done" : "error" }
+							: item,
+					),
+				);
+				break;
+			case "text-delta":
+				setStreamText((current) => current + event.text);
+				break;
+			case "finish":
+				setStreamText(event.text);
+				break;
+			case "error":
+				setError(event.message);
+				break;
 		}
 	}
 
@@ -410,10 +335,11 @@ export function App({
 			flexDirection="column"
 		>
 			<box
-				width={contentWidth}
+				width="100%"
 				height="100%"
 				flexDirection="column"
 				paddingY={1}
+				paddingX={2}
 			>
 				<box height={2} flexDirection="row" justifyContent="space-between">
 					<text fg={COLORS.accent}>
@@ -444,21 +370,11 @@ export function App({
 								<MessageView key={message.id} message={message} />
 							))}
 							{pending ? (
-								<box flexDirection="column" marginBottom={1}>
-									<text fg={COLORS.accent}>
-										<strong>Chestnut</strong> {DEFAULT_MODEL}
-									</text>
-									<text fg={COLORS.dim}>
-										<span fg={COLORS.accent}>{["◐", "◓", "◑"][progress]}</span>{" "}
-										{
-											[
-												"Understanding the request…",
-												"Inspecting the workspace…",
-												"Planning edits and checks…",
-											][progress]
-										}
-									</text>
-								</box>
+								<ActivityView
+									activity={activity}
+									streamText={streamText}
+									progress={progress}
+								/>
 							) : null}
 						</scrollbox>
 					)}
@@ -513,10 +429,6 @@ export function App({
 						maxLength={4000}
 						flexGrow={1}
 					/>
-				</box>
-				<box height={1} flexDirection="row" justifyContent="space-between">
-					<text fg={COLORS.dim}>/ commands @ files</text>
-					<text fg={COLORS.dim}>{input.length}/4000</text>
 				</box>
 			</box>
 		</box>

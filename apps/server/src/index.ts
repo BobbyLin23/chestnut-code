@@ -9,6 +9,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
+import { type AgentStreamEvent, streamCodingAgentRun } from "./agent-stream";
 import { createContext } from "./context";
 import { desktopOrigins, env } from "./env.server";
 import { mastra } from "./mastra";
@@ -42,6 +43,48 @@ app.use(
 
 app.get("/", (c) => {
 	return c.text("OK");
+});
+
+app.post("/agent/stream", async (c) => {
+	let message = "";
+	try {
+		const body = (await c.req.json()) as { message?: unknown };
+		message = typeof body.message === "string" ? body.message.trim() : "";
+	} catch {
+		return c.json({ error: "Invalid JSON body" }, 400);
+	}
+	if (!message || message.length > 4000) {
+		return c.json({ error: "message must be 1-4000 characters" }, 400);
+	}
+
+	const encoder = new TextEncoder();
+	const body = new ReadableStream<Uint8Array>({
+		async start(controller) {
+			const send = (event: AgentStreamEvent) => {
+				try {
+					controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+				} catch {
+					// Client disconnected; stop emitting.
+				}
+			};
+			try {
+				await streamCodingAgentRun(message, send);
+			} catch (cause) {
+				send({
+					type: "error",
+					message:
+						cause instanceof Error ? cause.message : "Agent stream failed.",
+				});
+			} finally {
+				try {
+					controller.close();
+				} catch {
+					// Already closed.
+				}
+			}
+		},
+	});
+	return c.body(body, 200, { "Content-Type": "application/x-ndjson" });
 });
 
 export default {

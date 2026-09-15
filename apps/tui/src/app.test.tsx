@@ -3,6 +3,7 @@ import { testRender } from "@opentui/react/test-utils";
 import { act } from "react";
 
 import { App, getSuggestions } from "./app";
+import type { AgentResponse, AgentStreamEvent } from "./client";
 
 let setup: Awaited<ReturnType<typeof testRender>> | undefined;
 
@@ -149,5 +150,72 @@ describe("coding agent TUI", () => {
 		expect(frame).toContain("Reasoning & actions");
 		expect(frame).toContain("✓ read_file");
 		expect(frame).toContain("✓ bash");
+	});
+
+	test("renders live tool steps and streamed text while the agent works", async () => {
+		let emit: ((event: AgentStreamEvent) => void) | undefined;
+		let resolveAgent: ((response: AgentResponse) => void) | undefined;
+		setup = await testRender(
+			<App
+				checkConnection={noConnectionCheck}
+				runAgent={(_message, onEvent) =>
+					new Promise<AgentResponse>((resolve) => {
+						emit = onEvent;
+						resolveAgent = resolve;
+					})
+				}
+			/>,
+			{ width: 100, height: 30 },
+		);
+		await setup.renderOnce();
+
+		await act(async () => {
+			await setup?.mockInput.typeText("Inspect the TUI");
+			setup?.mockInput.pressEnter();
+		});
+		await act(async () => {
+			emit?.({
+				type: "tool-call",
+				id: "call-1",
+				tool: "read_file",
+				args: { path: "apps/tui/src/app.tsx" },
+			});
+		});
+		await setup.renderOnce();
+		let frame = setup.captureCharFrame();
+		expect(frame).toContain("read_file");
+		expect(frame).toContain("apps/tui/src/app.tsx");
+		expect(frame).toContain("Agent is working");
+
+		await act(async () => {
+			emit?.({
+				type: "tool-result",
+				id: "call-1",
+				tool: "read_file",
+				ok: true,
+			});
+			emit?.({ type: "text-delta", text: "Streaming " });
+			emit?.({ type: "text-delta", text: "the answer…" });
+		});
+		await setup.renderOnce();
+		frame = setup.captureCharFrame();
+		expect(frame).toContain("✓");
+		expect(frame).toContain("read_file apps/tui/src/app.tsx");
+		expect(frame).toContain("Streaming the answer…");
+
+		await act(async () => {
+			resolveAgent?.({
+				model: "deepseek/deepseek-v4-flash",
+				text: "Streaming the answer…",
+				tools: ["read_file"],
+				toolCalls: ["read_file"],
+			});
+		});
+		const finalFrame = await setup.waitForFrame((nextFrame) =>
+			nextFrame.includes("Reasoning & actions"),
+		);
+		expect(finalFrame).toContain("✓ read_file");
+		expect(finalFrame).toContain("Streaming the answer…");
+		expect(finalFrame).not.toContain("Agent is working");
 	});
 });
