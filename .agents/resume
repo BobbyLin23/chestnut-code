@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+export PATH="$BUN_INSTALL/bin:$PATH"
+
+if ! command -v bun >/dev/null; then
+	echo "Bun is unavailable; rerun .agents/setup to repair this orb."
+	exit 1
+fi
+
+echo "Bun $(bun --version) is ready."

@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly BUN_VERSION="1.4.2"
+readonly BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+readonly BUN_BIN="$BUN_INSTALL/bin/bun"
+
+log_step() {
+	printf '\n==> %s\n' "$1"
+}
+
+ensure_bun_profile() {
+	local profile="$HOME/.bash_profile"
+	local marker="# chestnut-code Bun runtime"
+
+	if ! grep -Fqx "$marker" "$profile" 2>/dev/null; then
+		cat >> "$profile" <<'EOF'
+
+# chestnut-code Bun runtime
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+EOF
+	fi
+}
+
+if [[ ! -x "$BUN_BIN" || "$($BUN_BIN --version)" != "$BUN_VERSION" ]]; then
+	log_step "Installing Bun $BUN_VERSION"
+	curl -fsSL https://bun.sh/install | bash -s "bun-v$BUN_VERSION"
+fi
+
+export PATH="$BUN_INSTALL/bin:$PATH"
+ensure_bun_profile
+
+log_step "Installing locked Bun dependencies"
+time bun install --frozen-lockfile
+
+log_step "Generating environment accessors"
+time bun run env:generate
+
+log_step "Orb setup complete"
