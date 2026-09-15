@@ -1,41 +1,47 @@
 {
-	"version": 1,
-	"skills": {
-		"opentui": {
-			"source": "msmps/opentui-skill",
-			"sourceType": "github",
-			"skillPath": "skill/opentui/SKILL.md",
-			"computedHash": "7244056422f5d578beaffc95ae20a4b421923f70a8eb6a4decf49b3d79c0d2db"
-		},
-		"shadcn": {
-			"source": "shadcn/ui",
-			"sourceType": "github",
-			"skillPath": "skills/shadcn/SKILL.md",
-			"computedHash": "f615de216e085a84e31593ad0fa9062232adc40cd87b7c7ab2b8e49abf6500be"
-		},
-		"turborepo": {
-			"source": "vercel/turborepo",
-			"sourceType": "github",
-			"skillPath": "skills/turborepo/SKILL.md",
-			"computedHash": "47a3efd6a45597eeff338b218183d4d67c2b99fa085ca255e970f5370dcd9dbd"
-		},
-		"vercel-composition-patterns": {
-			"source": "vercel-labs/agent-skills",
-			"sourceType": "github",
-			"skillPath": "skills/composition-patterns/SKILL.md",
-			"computedHash": "f98931159fa9c7fed043bcd18a891a46dcf89ababa38df13a4c5b7b30dc0ce07"
-		},
-		"vercel-react-best-practices": {
-			"source": "vercel-labs/agent-skills",
-			"sourceType": "github",
-			"skillPath": "skills/react-best-practices/SKILL.md",
-			"computedHash": "3219a1944e404ffc14d1d9d6aef6dd2e3855b81387ee0a044ccbfe14d34c2357"
-		},
-		"web-design-guidelines": {
-			"source": "vercel-labs/agent-skills",
-			"sourceType": "github",
-			"skillPath": "skills/web-design-guidelines/SKILL.md",
-			"computedHash": "a6a44d5498f7e8f68289902f3dedfc6f38ae0cee1e96527c80724cf27f727c2a"
-		}
-	}
+  "version": 1,
+  "skills": {
+    "mastra": {
+      "source": "mastra-ai/skills",
+      "sourceType": "github",
+      "skillPath": "skills/mastra/SKILL.md",
+      "computedHash": "6482dad39fb72d1fe9d02078c15c3ee708774fd026a8557b4c7dc37fb554977a"
+    },
+    "opentui": {
+      "source": "msmps/opentui-skill",
+      "sourceType": "github",
+      "skillPath": "skill/opentui/SKILL.md",
+      "computedHash": "7244056422f5d578beaffc95ae20a4b421923f70a8eb6a4decf49b3d79c0d2db"
+    },
+    "shadcn": {
+      "source": "shadcn/ui",
+      "sourceType": "github",
+      "skillPath": "skills/shadcn/SKILL.md",
+      "computedHash": "f615de216e085a84e31593ad0fa9062232adc40cd87b7c7ab2b8e49abf6500be"
+    },
+    "turborepo": {
+      "source": "vercel/turborepo",
+      "sourceType": "github",
+      "skillPath": "skills/turborepo/SKILL.md",
+      "computedHash": "47a3efd6a45597eeff338b218183d4d67c2b99fa085ca255e970f5370dcd9dbd"
+    },
+    "vercel-composition-patterns": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/composition-patterns/SKILL.md",
+      "computedHash": "f98931159fa9c7fed043bcd18a891a46dcf89ababa38df13a4c5b7b30dc0ce07"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-best-practices/SKILL.md",
+      "computedHash": "3219a1944e404ffc14d1d9d6aef6dd2e3855b81387ee0a044ccbfe14d34c2357"
+    },
+    "web-design-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/web-design-guidelines/SKILL.md",
+      "computedHash": "a6a44d5498f7e8f68289902f3dedfc6f38ae0cee1e96527c80724cf27f727c2a"
+    }
+  }
 }
