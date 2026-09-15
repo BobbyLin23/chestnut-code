@@ -30,6 +30,7 @@
 		"check-types": "turbo run check-types",
 		"dev:web": "turbo run dev -F web --",
 		"dev:desktop": "turbo run dev:hmr -F desktop --",
+		"dev:browser": "turbo run dev --filter='web' --filter='server'",
 		"build:desktop": "turbo run build:stable -F desktop --",
 		"build:desktop:canary": "turbo run build:canary -F desktop --",
 		"dev:tui": "turbo run dev -F tui --",
