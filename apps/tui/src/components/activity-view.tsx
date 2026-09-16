@@ -1,74 +1,93 @@
 import { COLORS } from "../constants/color";
-import type { ToolActivity } from "../types";
+import { formatOutput } from "../transcript";
+import type { MessagePart } from "../types";
 
 const SPINNER = ["◐", "◓", "◑"] as const;
 
-const ARG_KEYS = [
-	"path",
-	"filePath",
-	"pattern",
-	"command",
-	"query",
-	"src",
-] as const;
-
-function summarizeArgs(args?: Record<string, unknown>): string {
-	if (!args) {
-		return "";
-	}
-	for (const key of ARG_KEYS) {
-		const value = args[key];
-		if (typeof value === "string" && value) {
-			return value.length > 60 ? `${value.slice(0, 60)}…` : value;
-		}
-	}
-	const entry = Object.entries(args)[0];
-	if (entry && typeof entry[1] === "string") {
-		return entry[1].length > 60 ? `${entry[1].slice(0, 60)}…` : entry[1];
-	}
-	return "";
-}
-
+/** The same transcript is rendered during streaming and after completion. */
 export function ActivityView({
-	activity,
-	streamText,
-	progress,
+	parts,
+	progress = 0,
 }: {
-	activity: ToolActivity[];
-	streamText: string;
-	progress: number;
+	parts: MessagePart[];
+	progress?: number;
 }) {
 	return (
-		<box flexDirection="column" marginBottom={1}>
-			{activity.length === 0 && !streamText ? (
-				<text fg={COLORS.dim}>
-					<span fg={COLORS.accent}>◐</span> Agent is working…
-				</text>
+		<box flexDirection="column" flexShrink={0} marginBottom={1}>
+			{parts.length === 0 ? (
+				<text fg={COLORS.dim}>◐ Agent is working…</text>
 			) : null}
-			{activity.map((item) => (
-				<text
-					key={item.id}
-					fg={item.status === "error" ? COLORS.danger : COLORS.dim}
-				>
-					{item.status === "running" ? (
-						<span fg={COLORS.accent}>{SPINNER[progress]}</span>
-					) : item.status === "done" ? (
-						<span fg={COLORS.tool}>✓</span>
-					) : (
-						<span fg={COLORS.danger}>✗</span>
-					)}
-					{"  "}
-					<strong>{item.tool}</strong>
-					{summarizeArgs(item.args) ? ` ${summarizeArgs(item.args)}` : ""}
-				</text>
-			))}
-			{streamText ? (
-				<box backgroundColor={COLORS.panel} paddingX={1} paddingY={1}>
-					<text fg={COLORS.assistant} selectable>
-						{streamText}
-					</text>
-				</box>
-			) : null}
+			{parts.map((part, index) => {
+				if (part.kind !== "tool")
+					return (
+						<box
+							// biome-ignore lint/suspicious/noArrayIndexKey: Transcript blocks are append-only; provider IDs repeat across steps.
+							key={`${index}-${part.id}`}
+							flexDirection="column"
+							flexShrink={0}
+							marginBottom={1}
+							{...(part.kind === "reasoning"
+								? { border: ["left"] as ["left"], borderColor: COLORS.border }
+								: {})}
+							paddingX={1}
+							backgroundColor={part.kind === "text" ? COLORS.panel : undefined}
+						>
+							{part.kind === "reasoning" ? (
+								<text fg={COLORS.accentMuted}>
+									<em>{part.complete ? "Reasoning" : "Thinking…"}</em>
+								</text>
+							) : null}
+							<text
+								fg={part.kind === "reasoning" ? COLORS.dim : COLORS.assistant}
+								selectable
+							>
+								{part.text}
+							</text>
+						</box>
+					);
+				const failed = part.status === "error" || part.status === "interrupted";
+				const icon =
+					part.status === "done" ? "✓" : failed ? "✗" : SPINNER[progress];
+				const output =
+					part.result === undefined || part.result === part.output
+						? part.output || part.result
+						: [part.output, part.result].filter(Boolean).join("\n");
+				return (
+					<box
+						key={`tool-${part.id}`}
+						flexDirection="column"
+						flexShrink={0}
+						marginBottom={1}
+						paddingX={1}
+					>
+						<text fg={failed ? COLORS.danger : COLORS.tool}>
+							<strong>
+								{icon} {part.tool}
+							</strong>
+							<span fg={COLORS.dim}>
+								{" "}
+								· {part.status === "input" ? "preparing" : part.status}
+								{part.exitCode !== undefined ? ` · exit ${part.exitCode}` : ""}
+							</span>
+						</text>
+						<text fg={COLORS.dim} selectable>
+							{part.args === undefined ? part.input : formatOutput(part.args)}
+						</text>
+						{output ? (
+							<box
+								border={["left"]}
+								borderColor={failed ? COLORS.danger : COLORS.border}
+								paddingLeft={1}
+								flexShrink={0}
+							>
+								<text fg={failed ? COLORS.danger : COLORS.assistant} selectable>
+									{output}
+								</text>
+							</box>
+						) : null}
+					</box>
+				);
+			})}
 		</box>
 	);
 }

@@ -14,7 +14,8 @@ import { ActivityView } from "./components/activity-view";
 import { MessageView } from "./components/message-view";
 import { Welcome } from "./components/welcome";
 import { COLORS } from "./constants/color";
-import type { Message, ToolActivity } from "./types";
+import { appendEvent, completeParts } from "./transcript";
+import type { Message, MessagePart } from "./types";
 
 const COMMANDS = [
 	{ name: "help", description: "Show keyboard shortcuts" },
@@ -155,8 +156,7 @@ export function App({
 	const [dismissedValue, setDismissedValue] = useState<string | null>(null);
 	const [serverOnline, setServerOnline] = useState<boolean | null>(null);
 	const [progress, setProgress] = useState(0);
-	const [activity, setActivity] = useState<ToolActivity[]>([]);
-	const [streamText, setStreamText] = useState("");
+	const [parts, setParts] = useState<MessagePart[]>([]);
 
 	const suggestions = useMemo(
 		() => getSuggestions(input, files),
@@ -227,8 +227,12 @@ export function App({
 		setInput("");
 		setError(null);
 		setPending(true);
-		setActivity([]);
-		setStreamText("");
+		setParts([]);
+		let transcript: MessagePart[] = [];
+		const handleEvent = (event: AgentStreamEvent) => {
+			transcript = appendEvent(transcript, event);
+			setParts(transcript);
+		};
 		setMessages((current) => [
 			...current,
 			{ id: uniqueId(), role: "user", text: message },
@@ -243,50 +247,26 @@ export function App({
 					text: response.text,
 					model: response.model,
 					toolCalls: response.toolCalls,
+					parts: transcript.length ? completeParts(transcript) : undefined,
 				},
 			]);
 			setServerOnline(true);
 		} catch (cause) {
+			if (transcript.length)
+				setMessages((current) => [
+					...current,
+					{
+						id: uniqueId(),
+						role: "assistant",
+						text: "",
+						parts: completeParts(transcript),
+					},
+				]);
 			setError(
 				cause instanceof Error ? cause.message : "The agent request failed.",
 			);
-			setServerOnline(false);
 		} finally {
 			setPending(false);
-		}
-	}
-
-	function handleEvent(event: AgentStreamEvent) {
-		switch (event.type) {
-			case "tool-call":
-				setActivity((current) => [
-					...current,
-					{
-						id: event.id,
-						tool: event.tool,
-						args: event.args,
-						status: "running",
-					},
-				]);
-				break;
-			case "tool-result":
-				setActivity((current) =>
-					current.map((item) =>
-						item.id === event.id
-							? { ...item, status: event.ok ? "done" : "error" }
-							: item,
-					),
-				);
-				break;
-			case "text-delta":
-				setStreamText((current) => current + event.text);
-				break;
-			case "finish":
-				setStreamText(event.text);
-				break;
-			case "error":
-				setError(event.message);
-				break;
 		}
 	}
 
@@ -370,11 +350,7 @@ export function App({
 								<MessageView key={message.id} message={message} />
 							))}
 							{pending ? (
-								<ActivityView
-									activity={activity}
-									streamText={streamText}
-									progress={progress}
-								/>
+								<ActivityView parts={parts} progress={progress} />
 							) : null}
 						</scrollbox>
 					)}

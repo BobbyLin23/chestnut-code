@@ -4,11 +4,24 @@ export type Message = {
 	text: string;
 	model?: string;
 	toolCalls?: string[];
+	parts?: MessagePart[];
 };
 
-export type ToolActivity = {
-	id: string;
-	tool: string;
-	args?: Record<string, unknown>;
-	status: "running" | "done" | "error";
-};
+export type MessagePart =
+	| {
+			kind: "text" | "reasoning";
+			id: string;
+			text: string;
+			complete: boolean;
+	  }
+	| {
+			kind: "tool";
+			id: string;
+			tool: string;
+			args?: unknown;
+			input: string;
+			output: string;
+			result?: string;
+			exitCode?: number;
+			status: "input" | "running" | "done" | "error" | "interrupted";
+	  };

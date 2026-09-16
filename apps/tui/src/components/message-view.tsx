@@ -1,5 +1,6 @@
 import { COLORS } from "../constants/color";
 import type { Message } from "../types";
+import { ActivityView } from "./activity-view";
 import { ToolTimeline } from "./tool-timeline";
 
 export function MessageView({ message }: { message: Message }) {
@@ -17,6 +18,8 @@ export function MessageView({ message }: { message: Message }) {
 	}
 
 	const assistant = message.role === "assistant";
+	if (assistant && message.parts?.length)
+		return <ActivityView parts={message.parts} />;
 
 	return (
 		<box flexDirection="column" marginBottom={1}>

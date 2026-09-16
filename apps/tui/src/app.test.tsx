@@ -15,6 +15,45 @@ afterEach(async () => {
 describe("coding agent TUI", () => {
 	const noConnectionCheck = () => new Promise<boolean>(() => undefined);
 
+	test("keeps reasoning and interrupted tool input after a stream failure", async () => {
+		setup = await testRender(
+			<App
+				checkConnection={noConnectionCheck}
+				initialInput="Inspect"
+				runAgent={async (_message, emit) => {
+					emit?.({
+						type: "reasoning-delta",
+						runId: "r",
+						from: "AGENT",
+						payload: { id: "r0", text: "Check the config first." },
+					});
+					emit?.({
+						type: "tool-call",
+						runId: "r",
+						from: "AGENT",
+						payload: {
+							toolCallId: "c",
+							toolName: "read_file",
+							args: { path: "config.ts" },
+						},
+					});
+					throw new Error("Connection lost");
+				}}
+			/>,
+			{ width: 80, height: 30 },
+		);
+		await act(async () => setup?.mockInput.pressEnter());
+		const frame = await setup.waitForFrame((value) =>
+			value.includes("Connection lost"),
+		);
+		expect(frame).toContain("Reasoning");
+		expect(frame).toContain("Check the config first.");
+		expect(frame).toContain("read_file");
+		expect(frame).toContain("interrupted");
+		expect(frame).toContain("config.ts");
+		expect(frame).not.toContain("✓ read_file");
+	});
+
 	test("renders the model and primary interaction hints", async () => {
 		setup = await testRender(<App checkConnection={noConnectionCheck} />, {
 			width: 100,
@@ -175,32 +214,59 @@ describe("coding agent TUI", () => {
 		});
 		await act(async () => {
 			emit?.({
+				type: "reasoning-delta",
+				runId: "run",
+				from: "AGENT",
+				payload: { id: "r0", text: "Inspecting the renderer." },
+			});
+			emit?.({
 				type: "tool-call",
-				id: "call-1",
-				tool: "read_file",
-				args: { path: "apps/tui/src/app.tsx" },
+				runId: "run",
+				from: "AGENT",
+				payload: {
+					toolCallId: "call-1",
+					toolName: "read_file",
+					args: { path: "apps/tui/src/app.tsx" },
+				},
 			});
 		});
 		await setup.renderOnce();
 		let frame = setup.captureCharFrame();
 		expect(frame).toContain("read_file");
+		expect(frame).toContain("Thinking…");
+		expect(frame).toContain("Inspecting the renderer.");
 		expect(frame).toContain("apps/tui/src/app.tsx");
 		expect(frame).toContain("Agent is working");
 
 		await act(async () => {
 			emit?.({
 				type: "tool-result",
-				id: "call-1",
-				tool: "read_file",
-				ok: true,
+				runId: "run",
+				from: "AGENT",
+				payload: {
+					toolCallId: "call-1",
+					toolName: "read_file",
+					result: "File contents",
+				},
 			});
-			emit?.({ type: "text-delta", text: "Streaming " });
-			emit?.({ type: "text-delta", text: "the answer…" });
+			emit?.({
+				type: "text-delta",
+				runId: "run",
+				from: "AGENT",
+				payload: { id: "txt-0", text: "Streaming " },
+			});
+			emit?.({
+				type: "text-delta",
+				runId: "run",
+				from: "AGENT",
+				payload: { id: "txt-0", text: "the answer…" },
+			});
 		});
 		await setup.renderOnce();
 		frame = setup.captureCharFrame();
 		expect(frame).toContain("✓");
-		expect(frame).toContain("read_file apps/tui/src/app.tsx");
+		expect(frame).toContain("apps/tui/src/app.tsx");
+		expect(frame).toContain("File contents");
 		expect(frame).toContain("Streaming the answer…");
 
 		await act(async () => {
@@ -211,10 +277,13 @@ describe("coding agent TUI", () => {
 				toolCalls: ["read_file"],
 			});
 		});
-		const finalFrame = await setup.waitForFrame((nextFrame) =>
-			nextFrame.includes("Reasoning & actions"),
+		const finalFrame = await setup.waitForFrame(
+			(nextFrame) => !nextFrame.includes("Agent is working"),
 		);
 		expect(finalFrame).toContain("✓ read_file");
+		expect(finalFrame).toContain("File contents");
+		expect(finalFrame).toContain("Reasoning");
+		expect(finalFrame).toContain("Inspecting the renderer.");
 		expect(finalFrame).toContain("Streaming the answer…");
 		expect(finalFrame).not.toContain("Agent is working");
 	});

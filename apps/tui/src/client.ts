@@ -1,3 +1,8 @@
+import type { AgentStreamEvent } from "@chestnut-code/api/agent-stream";
+import { createParser } from "eventsource-parser";
+import { formatOutput } from "./transcript";
+
+export type { AgentStreamEvent } from "@chestnut-code/api/agent-stream";
 export const DEFAULT_MODEL = "deepseek/deepseek-v4-flash";
 
 export type AgentResponse = {
@@ -6,18 +11,6 @@ export type AgentResponse = {
 	tools: readonly string[];
 	toolCalls: string[];
 };
-
-export type AgentStreamEvent =
-	| {
-			type: "tool-call";
-			id: string;
-			tool: string;
-			args?: Record<string, unknown>;
-	  }
-	| { type: "tool-result"; id: string; tool: string; ok: boolean }
-	| { type: "text-delta"; text: string }
-	| { type: "finish"; text: string; model: string }
-	| { type: "error"; message: string };
 
 export type RunAgent = (
 	message: string,
@@ -34,60 +27,72 @@ export async function streamCodingAgent(
 ): Promise<AgentResponse> {
 	const response = await fetch(`${getServerUrl()}/agent/stream`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
+		headers: {
+			"Content-Type": "application/json",
+			Accept: "text/event-stream",
+		},
 		body: JSON.stringify({ message }),
 	});
 	if (!response.ok || !response.body) {
 		throw new Error(`The agent request failed (HTTP ${response.status}).`);
 	}
+	if (!response.headers.get("content-type")?.startsWith("text/event-stream")) {
+		await response.body.cancel();
+		throw new Error("Expected an SSE response from the agent.");
+	}
 
 	const reader = response.body.getReader();
 	const decoder = new TextDecoder();
-	let buffer = "";
 	let text = "";
+	let model = DEFAULT_MODEL;
+	let finished = false;
 	const toolCalls: string[] = [];
-
-	for (;;) {
-		const { done, value } = await reader.read();
-		if (done) {
-			break;
-		}
-		buffer += decoder.decode(value, { stream: true });
-		for (;;) {
-			const newlineIndex = buffer.indexOf("\n");
-			if (newlineIndex === -1) {
-				break;
-			}
-			const line = buffer.slice(0, newlineIndex);
-			buffer = buffer.slice(newlineIndex + 1);
-			if (!line.trim()) {
-				continue;
-			}
-			const event = JSON.parse(line) as AgentStreamEvent;
+	const parser = createParser({
+		onEvent({ data }) {
+			const event = JSON.parse(data) as AgentStreamEvent;
+			onEvent?.(event);
 			switch (event.type) {
 				case "tool-call":
-					toolCalls.push(event.tool);
+					toolCalls.push(event.payload.toolName);
 					break;
 				case "text-delta":
-					text += event.text;
+					text += event.payload.text;
 					break;
-				case "finish":
-					text = event.text;
+				case "finish": {
+					const reason = event.payload.stepResult.reason;
+					if (reason === "error" || reason === "tripwire")
+						throw new Error(`Agent stopped: ${reason}`);
+					finished = true;
+					const modelId = event.payload.metadata.modelId;
+					if (typeof modelId === "string") model = modelId;
 					break;
+				}
 				case "error":
-					throw new Error(event.message);
+				case "transport-error":
+					throw new Error(formatOutput(event.payload.error));
+				case "abort":
+					throw new Error("Agent stream was aborted.");
 			}
-			onEvent?.(event);
+		},
+	});
+	try {
+		for (;;) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			parser.feed(decoder.decode(value, { stream: true }));
 		}
+		parser.feed(decoder.decode());
+		if (!finished) throw new Error("Agent stream ended before finish.");
+		return { model, text, toolCalls, tools: toolCalls };
+	} finally {
+		await reader.cancel().catch(() => undefined);
+		reader.releaseLock();
 	}
-
-	return { model: DEFAULT_MODEL, text, toolCalls, tools: toolCalls };
 }
 
 export async function checkServer() {
 	try {
-		const response = await fetch(getServerUrl());
-		return response.ok;
+		return (await fetch(getServerUrl())).ok;
 	} catch {
 		return false;
 	}

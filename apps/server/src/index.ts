@@ -1,3 +1,4 @@
+import type { AgentStreamEvent } from "@chestnut-code/api/agent-stream";
 import { appRouter } from "@chestnut-code/api/routers/index";
 import { trpcServer } from "@hono/trpc-server";
 import {
@@ -8,8 +9,9 @@ import {
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { streamSSE } from "hono/streaming";
 
-import { type AgentStreamEvent, streamCodingAgentRun } from "./agent-stream";
+import { streamCodingAgentRun } from "./agent-stream";
 import { createContext } from "./context";
 import { desktopOrigins, env } from "./env.server";
 import { mastra } from "./mastra";
@@ -57,34 +59,31 @@ app.post("/agent/stream", async (c) => {
 		return c.json({ error: "message must be 1-4000 characters" }, 400);
 	}
 
-	const encoder = new TextEncoder();
-	const body = new ReadableStream<Uint8Array>({
-		async start(controller) {
-			const send = (event: AgentStreamEvent) => {
-				try {
-					controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
-				} catch {
-					// Client disconnected; stop emitting.
-				}
-			};
-			try {
-				await streamCodingAgentRun(message, send);
-			} catch (cause) {
-				send({
-					type: "error",
-					message:
-						cause instanceof Error ? cause.message : "Agent stream failed.",
+	return streamSSE(c, async (stream) => {
+		const abort = new AbortController();
+		stream.onAbort(() => abort.abort());
+		const send = async (chunk: AgentStreamEvent) => {
+			await stream.writeSSE({
+				data: JSON.stringify(chunk, (_key, value) =>
+					value instanceof Error
+						? { ...value, name: value.name, message: value.message }
+						: value,
+				),
+			});
+		};
+		try {
+			await streamCodingAgentRun(message, send, abort.signal);
+		} catch (cause) {
+			if (!abort.signal.aborted)
+				await send({
+					type: "transport-error",
+					payload: {
+						error:
+							cause instanceof Error ? cause.message : "Agent stream failed.",
+					},
 				});
-			} finally {
-				try {
-					controller.close();
-				} catch {
-					// Already closed.
-				}
-			}
-		},
+		}
 	});
-	return c.body(body, 200, { "Content-Type": "application/x-ndjson" });
 });
 
 export default {
