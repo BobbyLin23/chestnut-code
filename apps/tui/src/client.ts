@@ -24,6 +24,7 @@ export function getServerUrl() {
 export async function streamCodingAgent(
 	message: string,
 	onEvent?: (event: AgentStreamEvent) => void,
+	workspacePath?: string,
 ): Promise<AgentResponse> {
 	const response = await fetch(`${getServerUrl()}/agent/stream`, {
 		method: "POST",
@@ -31,7 +32,7 @@ export async function streamCodingAgent(
 			"Content-Type": "application/json",
 			Accept: "text/event-stream",
 		},
-		body: JSON.stringify({ message }),
+		body: JSON.stringify({ message, workspacePath }),
 	});
 	if (!response.ok || !response.body) {
 		throw new Error(`The agent request failed (HTTP ${response.status}).`);

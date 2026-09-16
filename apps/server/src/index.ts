@@ -1,3 +1,5 @@
+import { realpath, stat } from "node:fs/promises";
+import { isAbsolute } from "node:path";
 import type { AgentStreamEvent } from "@chestnut-code/api/agent-stream";
 import { appRouter } from "@chestnut-code/api/routers/index";
 import { trpcServer } from "@hono/trpc-server";
@@ -49,11 +51,28 @@ app.get("/", (c) => {
 
 app.post("/agent/stream", async (c) => {
 	let message = "";
+	let workspacePath: string | undefined;
 	try {
-		const body = (await c.req.json()) as { message?: unknown };
+		const body = (await c.req.json()) as {
+			message?: unknown;
+			workspacePath?: unknown;
+		};
 		message = typeof body.message === "string" ? body.message.trim() : "";
+		if (body.workspacePath !== undefined) {
+			if (
+				typeof body.workspacePath !== "string" ||
+				body.workspacePath.length > 4096 ||
+				!isAbsolute(body.workspacePath)
+			) {
+				return c.json({ error: "workspacePath must be an absolute path" }, 400);
+			}
+			workspacePath = await realpath(body.workspacePath);
+			if (!(await stat(workspacePath)).isDirectory()) {
+				return c.json({ error: "workspacePath must be a directory" }, 400);
+			}
+		}
 	} catch {
-		return c.json({ error: "Invalid JSON body" }, 400);
+		return c.json({ error: "Invalid JSON body or workspacePath" }, 400);
 	}
 	if (!message || message.length > 4000) {
 		return c.json({ error: "message must be 1-4000 characters" }, 400);
@@ -72,7 +91,7 @@ app.post("/agent/stream", async (c) => {
 			});
 		};
 		try {
-			await streamCodingAgentRun(message, send, abort.signal);
+			await streamCodingAgentRun(message, send, abort.signal, workspacePath);
 		} catch (cause) {
 			if (!abort.signal.aborted)
 				await send({

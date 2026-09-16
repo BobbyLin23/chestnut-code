@@ -3,10 +3,14 @@ import { createRoot } from "@opentui/react";
 
 import { App } from "./app";
 import { streamCodingAgent } from "./client";
-import { attachMentionedFiles, loadWorkspace } from "./files";
+import {
+	attachMentionedFiles,
+	getWorkspaceArgument,
+	loadWorkspace,
+} from "./files";
 
 const renderer = await createCliRenderer({ exitOnCtrlC: false });
-const workspace = loadWorkspace();
+const workspace = loadWorkspace(getWorkspaceArgument());
 
 createRoot(renderer).render(
 	<App
@@ -19,6 +23,7 @@ createRoot(renderer).render(
 					workspace.rootPath,
 				),
 				onEvent,
+				workspace.rootPath,
 			)
 		}
 	/>,

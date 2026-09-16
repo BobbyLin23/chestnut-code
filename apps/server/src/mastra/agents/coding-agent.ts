@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCodingAgent } from "@mastra/core/coding-agent";
 import {
@@ -17,63 +18,64 @@ export const CODING_AGENT_TOOLS = [
 	"bash",
 ] as const;
 
-const workspacePath = fileURLToPath(
+const defaultWorkspacePath = fileURLToPath(
 	new URL("../../../../../.coding-agent-workspace/", import.meta.url),
 );
 
-const workspace = new Workspace({
-	id: "coding-agent-workspace",
-	name: "Coding Agent Workspace",
-	filesystem: new LocalFilesystem({
-		id: "coding-agent-filesystem",
-		basePath: workspacePath,
-		contained: true,
-	}),
-	sandbox: new LocalSandbox({
-		id: "coding-agent-sandbox",
-		workingDirectory: workspacePath,
-		timeout: 30_000,
-	}),
-	tools: {
-		enabled: false,
-		[WORKSPACE_TOOLS.FILESYSTEM.LIST_FILES]: {
-			enabled: true,
-			name: "list_files",
+async function createAgent(workspacePath: string) {
+	const workspace = new Workspace({
+		id: "coding-agent-workspace",
+		name: "Coding Agent Workspace",
+		filesystem: new LocalFilesystem({
+			id: "coding-agent-filesystem",
+			basePath: workspacePath,
+			contained: true,
+		}),
+		sandbox: new LocalSandbox({
+			id: "coding-agent-sandbox",
+			workingDirectory: workspacePath,
+			timeout: 30_000,
+		}),
+		tools: {
+			enabled: false,
+			[WORKSPACE_TOOLS.FILESYSTEM.LIST_FILES]: {
+				enabled: true,
+				name: "list_files",
+			},
+			[WORKSPACE_TOOLS.FILESYSTEM.READ_FILE]: {
+				enabled: true,
+				name: "read_file",
+				maxOutputTokens: 8_000,
+			},
+			[WORKSPACE_TOOLS.FILESYSTEM.WRITE_FILE]: {
+				enabled: true,
+				name: "write_file",
+				requireReadBeforeWrite: true,
+			},
+			[WORKSPACE_TOOLS.FILESYSTEM.EDIT_FILE]: {
+				enabled: true,
+				name: "edit_file",
+				requireReadBeforeWrite: true,
+			},
+			[WORKSPACE_TOOLS.FILESYSTEM.GREP]: {
+				enabled: true,
+				name: "grep",
+				maxOutputTokens: 8_000,
+			},
+			[WORKSPACE_TOOLS.SANDBOX.EXECUTE_COMMAND]: {
+				enabled: true,
+				name: "bash",
+				maxOutputTokens: 8_000,
+			},
 		},
-		[WORKSPACE_TOOLS.FILESYSTEM.READ_FILE]: {
-			enabled: true,
-			name: "read_file",
-			maxOutputTokens: 8_000,
-		},
-		[WORKSPACE_TOOLS.FILESYSTEM.WRITE_FILE]: {
-			enabled: true,
-			name: "write_file",
-			requireReadBeforeWrite: true,
-		},
-		[WORKSPACE_TOOLS.FILESYSTEM.EDIT_FILE]: {
-			enabled: true,
-			name: "edit_file",
-			requireReadBeforeWrite: true,
-		},
-		[WORKSPACE_TOOLS.FILESYSTEM.GREP]: {
-			enabled: true,
-			name: "grep",
-			maxOutputTokens: 8_000,
-		},
-		[WORKSPACE_TOOLS.SANDBOX.EXECUTE_COMMAND]: {
-			enabled: true,
-			name: "bash",
-			maxOutputTokens: 8_000,
-		},
-	},
-});
+	});
 
-await workspace.init();
+	await workspace.init();
 
-export const codingAgent = createCodingAgent({
-	id: "coding-agent",
-	name: "Chestnut Coding Agent",
-	instructions: `You are a practical coding agent working in a dedicated workspace.
+	return createCodingAgent({
+		id: "coding-agent",
+		name: "Chestnut Coding Agent",
+		instructions: `You are a practical coding agent working in a dedicated workspace.
 
 Follow this loop:
 1. Inspect relevant files before changing them. Use list_files and grep to discover code, then read_file for context.
@@ -82,6 +84,22 @@ Follow this loop:
 4. Summarize what changed and report verification honestly.
 
 Never access or modify files outside the workspace. Avoid destructive commands. Ask one focused question only when the task cannot be completed safely without missing information.`,
-	model: DEFAULT_MODEL,
-	workspace,
-});
+		model: DEFAULT_MODEL,
+		workspace,
+	});
+}
+
+export const codingAgent = await createAgent(defaultWorkspacePath);
+const agentsByWorkspace = new Map<string, Promise<typeof codingAgent>>([
+	[defaultWorkspacePath, Promise.resolve(codingAgent)],
+]);
+
+export function getCodingAgent(workspacePath?: string) {
+	const path = resolve(workspacePath ?? defaultWorkspacePath);
+	let agent = agentsByWorkspace.get(path);
+	if (!agent) {
+		agent = createAgent(path);
+		agentsByWorkspace.set(path, agent);
+	}
+	return agent;
+}

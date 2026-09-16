@@ -1,17 +1,30 @@
 import { resolve } from "node:path";
 
-const IGNORED_PREFIXES = [".agents/skills/"];
+const IGNORED_PREFIXES = [".agents/skills/", ".git/", "node_modules/"];
 const MAX_PROMPT_LENGTH = 4000;
 
-export function loadWorkspace() {
+export function getWorkspaceArgument(args = process.argv.slice(2)) {
+	const optionIndex = args.indexOf("--workspace");
+	if (optionIndex >= 0) return args[optionIndex + 1];
+	return args.find((arg) => !arg.startsWith("-"));
+}
+
+export function loadWorkspace(directory?: string) {
+	const requestedPath = resolve(directory ?? process.cwd());
+	if (directory) return loadWorkspaceAt(requestedPath);
+
 	const root = Bun.spawnSync(["git", "rev-parse", "--show-toplevel"], {
-		cwd: process.cwd(),
+		cwd: requestedPath,
 	});
 	if (root.exitCode !== 0) {
-		return { files: [], rootPath: process.cwd() };
+		return loadWorkspaceAt(requestedPath);
 	}
 
 	const rootPath = root.stdout.toString().trim();
+	return loadWorkspaceAt(rootPath);
+}
+
+function loadWorkspaceAt(rootPath: string) {
 	const files = Bun.spawnSync(
 		["git", "ls-files", "--cached", "--others", "--exclude-standard"],
 		{
@@ -19,7 +32,22 @@ export function loadWorkspace() {
 		},
 	);
 	if (files.exitCode !== 0) {
-		return { files: [], rootPath };
+		const paths = Array.from(
+			new Bun.Glob("**/*").scanSync({
+				cwd: rootPath,
+				dot: true,
+				followSymlinks: false,
+				onlyFiles: true,
+			}),
+		)
+			.filter(
+				(path) =>
+					!IGNORED_PREFIXES.some(
+						(prefix) => path === prefix.slice(0, -1) || path.startsWith(prefix),
+					),
+			)
+			.sort();
+		return { files: paths, rootPath };
 	}
 
 	const paths = files.stdout

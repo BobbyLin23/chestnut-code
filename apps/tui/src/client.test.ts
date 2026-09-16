@@ -79,6 +79,20 @@ test("parses fragmented SSE, forwards complete payloads and keeps actual model",
 	});
 });
 
+test("sends the selected workspace to the server", async () => {
+	serve(
+		'data: {"type":"finish","payload":{"stepResult":{"reason":"stop"},"metadata":{"modelId":"test/model"}}}\n\n',
+	);
+
+	await streamCodingAgent("Inspect", undefined, "/projects/selected");
+
+	const init = fetchSpy.mock.calls[0]?.[1] as RequestInit;
+	expect(JSON.parse(String(init.body))).toEqual({
+		message: "Inspect",
+		workspacePath: "/projects/selected",
+	});
+});
+
 test.each(["error", "transport-error"])(
 	"surfaces %s after notifying the consumer",
 	async (type) => {

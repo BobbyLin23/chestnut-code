@@ -24,7 +24,8 @@ const stream = mock(async () => ({
 		yield* chunks;
 	})(),
 }));
-mock.module("./mastra", () => ({ codingAgent: { stream } }));
+const getCodingAgent = mock(async () => ({ stream }));
+mock.module("./mastra", () => ({ getCodingAgent }));
 const { streamCodingAgentRun } = await import("./agent-stream");
 
 test("forwards every original chunk and passes cancellation to Mastra", async () => {
@@ -43,6 +44,19 @@ test("forwards every original chunk and passes cancellation to Mastra", async ()
 		maxSteps: 10,
 		abortSignal: abort.signal,
 	});
+	expect(getCodingAgent).toHaveBeenLastCalledWith(undefined);
+});
+
+test("selects the agent for the requested workspace", async () => {
+	const abort = new AbortController();
+	await streamCodingAgentRun(
+		"hello",
+		async () => undefined,
+		abort.signal,
+		"/projects/selected",
+	);
+
+	expect(getCodingAgent).toHaveBeenLastCalledWith("/projects/selected");
 });
 
 test("awaits the writer and stops forwarding after disconnect", async () => {
